@@ -3,44 +3,62 @@
 	<head>
 		<title>{PAGETITLE}</title>
 
-		<script type="text/javascript" src="http://maps.google.com/maps/api/js?v=3.4&sensor=false"></script>
-		<script type="text/javascript" src="jquery.largeimageviewer.js"></script>
-		<style media="screen" type="text/css">
-			html, body {
-				height: 100%;
-			}
-		</style>
+        <style media="screen" type="text/css">
+            html, body {
+                height: 100%;
+            }
+            body {
+                margin: 0px;
+            }
+            .LIVCaption {
+                color: white;
+                font-family: Arial, sans-serif;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            .LIVFullScreen {
+                height: 100% !important;
+                width: 100% !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                margin-bottom: 8px !important;
+                margin-top: 0 !important;
+            }
+        </style>
+		<script type="text/javascript" src="http://maps.google.com/maps/api/js?v=3.10&sensor=false"></script>
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+        <script type="text/javascript" src="jquery.largeimageviewer.js"></script>
+        <script type="text/javascript">
+            $( document ).ready( function() {
+                $( '#largeImage').largeImageViewer( {
+                    showPanControl: {SHOWPANCONTROL},
+                    imageWidth: {IMGWIDTH},
+                    imageHeight: {IMGHEIGHT},
+                    initialX: '{INITIALX}',
+                    initialY: '{INITIALY}',
+                    initialZoom: '{INITIALZOOM}',
+                    zoomSize: '{ZOOMSIZE}',
+                    backgroundColor: '{BACKGROUNDCOLOR}',
+                    titleTop: {
+                        text: "{TITLETOPTEXT}",
+                        cssClass: "{TITLETOPCLASS}" // was: style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
+                    },
+                    titleBottom: {
+                        text: "{TITLEBOTTOMTEXT}",
+                        cssClass: "{TITLEBOTTOMCLASS}" // was: style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
+                    },
+                    copyright: {
+                        text: "{COPYRIGHTTEXT}",
+                        URL: "{COPYRIGHTURL}"
+                    }
+                });
+            });
+        </script>
 	</head>
 
-	<body style="margin: 0px;">
-		<div
-			id="largeImage"
-			class="liv"
-			style="{DIVSIZE}"
-			showpancontrol="{SHOWPANCONTROL}"
-			tilesrc="tiles"
-			imgwidth = "{IMGWIDTH}"
-			imgheight = "{IMGHEIGHT}"
-			imgtilesize = "{IMGTILESIZE}"
-			backgroundcolor = "{BACKGROUNDCOLOR}"
-			initialzoom = "{INITIALZOOM}"
-			initialx = "{INITIALX}"
-			initialy = "{INITIALY}"
-			zoomsize = "{ZOOMSIZE}"
-		>
-			<div
-				class="{TEXTOVERLAYCLASS1}"
-				style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
-			>
-				<h3>{TEXTOVERLAYTEXT1}</h3>
-			</div>
-			<div
-				class="{TEXTOVERLAYCLASS2}"
-				style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
-			>
-				<h3>{TEXTOVERLAYTEXT2}</h3>
-			</div>
-		</div>
+	<body>
+		<div id="largeImage" style="{DIVSIZE}"></div>
 
 	</body>
 </html>
