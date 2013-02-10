@@ -14,6 +14,7 @@
         >
 
     <property file="build_info.properties" />
+
     <property name="src" location="LrLargeImageViewer.lrdevplugin"/>
     <property name="build" location="build"/>
     <property name="dist"  location="dist"/>
@@ -57,18 +58,19 @@
     </target>
 
 
+    <!-- For more complete handling of build numbers, see
+         http://stackoverflow.com/questions/1431315/build-numbers-major-minor-revision -->
     <target name="modify-version">
         <tstamp />
-        <!--<exec executable="${svnversion}" outputproperty="svnversionOutput" />-->
-        <property name="svnversionOutput" value="DFB" />
-        <property name="versionString" value="${DSTAMP}(SVN ${svnversionOutput})" />
+        <property name="versionString" value="${build.major.number}.${build.minor.number}.${DSTAMP}"/>
+
         <replaceregexp file="${src}/Info.lua"
                        match="Version:.*"
                        replace="Version: ${versionString}"
                 />
         <replaceregexp file="${src}/Info.lua"
-                       match="(VERSION.*display *= *)&quot;.*&quot;"
-                       replace="\1&quot;${versionString}&quot;"
+                       match="(VERSION.*display *= *)'.*'"
+                       replace="\1'${versionString}'"
                 />
     </target>
 

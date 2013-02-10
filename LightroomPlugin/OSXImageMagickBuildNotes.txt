@@ -1,0 +1,69 @@
+From http://forums.adobe.com/message/5041553
+
+1. Download ImageMagick.tar.gz distribution to /Users/John.  Unpack it by doing:
+    cd /Users/John
+    tar xvfz ImageMagick.tar.gz
+See http://www.imagemagick.org/script/advanced-unix-installation.php
+2. Download the jpegsrc.tar.gz library from:
+    http://www.imagemagick.org/download/delegates/
+to /Users/John/ImageMagick and unpack it with:
+    cd /Users/John/ImageMagick
+    tar xvfz jpegsrc.tar.gz
+    mv jpegsrc<version> jpeg
+3. Configure and build the jpeg library:
+    cd jpeg
+    ./configure --disable-shared
+    make clean; make
+4. Download the libpng.tar.gz library from:
+    http://www.imagemagick.org/download/delegates/
+to /Users/John/ImageMagick and unpack it with:
+    cd /Users/John/ImageMagick
+    tar xvfz libpng.tar.gz
+    mv libpng<verszion> png
+5. Configure and build the png library:
+    cd png
+    ./configure --disable-shared
+    make clean; make
+6. Configure and build ImageMagick; copy configure.sh to ImageMagick folder and do:
+    cd /Users/John/ImageMagick
+    sh configure.sh
+    make clean; make
+7. Verify that composite is only loading dynamic libraries from /System and /usr/lib:
+    otool -L utilities/composite
+8. Copy utilities/composite and config/delegates.xml to anyfile.lrdevplugin.
+
+
+And here's the contents of the "configure.sh" script referenced above:
+
+# Image-magick configure script for configuring with Any File
+# --disable-opencl \
+./configure \
+--disable-installed \
+--disable-shared \
+--enable-delegate-build \
+--prefix=/ImageMagick-6.7.3-7 \
+--disable-dependency-tracking \
+--with-x=no \
+--without-perl \
+--with-freetype=no \
+--with-jp2=no \
+--with-tiff=no \
+--with-magick-plus-plus=no \
+--with-bzlib=no
+
+Following up on this, this was great info and went pretty smoothly. The hiccup was when I wanted to include
+TIFF support since I need that. It wasn't as trivial as the jpeg or png delegates and also required tweaks
+to the main IM build. Here are my supplemental notes:
+
+- Using the same pattern of commands as for the jpeg and png libraries above, download the latest tiff library from the IM site, unzip/untar it, and rename the directory to tiff/
+- cd to tiff
+- Config the TIFF build using "./configure --disable-shared --disable-lzma"
+- run the build: "make"
+
+- cd .. to the IM directory
+- Use John's configure.sh file as above but add the following:
+    --disable-opencl --with-tiff=yes --without-lzma CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+- run the build: "make"
+- as with John's notes, run otool to verify no non-core dependencies.
+
+If it matters, I was using Xcode 4.6 and gcc version 4.2.1.

@@ -26,10 +26,10 @@
             <!--<arg line="- -warning_level VERBOSE" />-->
             <!--<arg line="- -summary_detail_level 3" />-->
 
-            <!-- <arg line="formatting PRETTY_PRINT" /> -->
-            <!-- <arg line="create_source_map build/smap.js" /> -->
+             <!--<arg line="- -formatting PRETTY_PRINT" />-->
+             <!--<arg line="- -create_source_map smap.js" />-->
             <!-- <arg line="source_map_format V2" /> -->
-            <!--<arg line="- -externs ${src}goog/extern.js" />-->
+            <arg line="--externs externs/google_maps_api_v3_11.js" />
 
             <arg line="--js jquery.largeimageviewer.js" />
             <arg line="--js_output_file ${buildDir}/jquery.largeimageviewer.min.js" />
