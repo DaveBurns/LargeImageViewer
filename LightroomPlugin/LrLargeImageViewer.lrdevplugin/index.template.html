@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>{PAGETITLE}</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>{PAGETITLE}</title>
 
         <style media="screen" type="text/css">
             html, body {
@@ -10,51 +11,28 @@
             body {
                 margin: 0px;
             }
-            .LIVCaption {
-                color: white;
-                font-family: Arial, sans-serif;
-                font-size: 20px;
-                font-weight: bold;
-            }
-            .LIVFullScreen {
-                height: 100% !important;
-                width: 100% !important;
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                margin-bottom: 8px !important;
-                margin-top: 0 !important;
-            }
         </style>
-		<script type="text/javascript" src="http://maps.google.com/maps/api/js?v=3.10&sensor=false"></script>
-        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+		<script type="text/javascript" src="https://maps.google.com/maps/api/js?v=3&key=AIzaSyDecvkwJbRUd-4tk4Nr2vX-CDJfhn2_Y0M"></script>
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
         <script type="text/javascript" src="jquery.largeimageviewer.js"></script>
         <script type="text/javascript">
             $( document ).ready( function() {
-                $( '#largeImage').largeImageViewer( {
-                    showPanControl: {SHOWPANCONTROL},
-                    imageWidth: {IMGWIDTH},
-                    imageHeight: {IMGHEIGHT},
-                    initialX: '{INITIALX}',
-                    initialY: '{INITIALY}',
-                    initialZoom: '{INITIALZOOM}',
-                    zoomSize: '{ZOOMSIZE}',
-                    backgroundColor: '{BACKGROUNDCOLOR}',
-                    titleTop: {
-                        text: "{TITLETOPTEXT}",
-                        cssClass: "{TITLETOPCLASS}" // was: style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
-                    },
-                    titleBottom: {
-                        text: "{TITLEBOTTOMTEXT}",
-                        cssClass: "{TITLEBOTTOMCLASS}" // was: style="font-family: Verdana, Arial, Helvetica, sans-serif; color: white;"
-                    },
-                    copyright: {
-                        text: "{COPYRIGHTTEXT}",
-                        URL: "{COPYRIGHTURL}"
-                    }
-                });
-            });
+                $( '#largeImage' ).largeImageViewer( {
+                    image_width:      '{IMGWIDTH}',
+                    image_height:     '{IMGHEIGHT}',
+                    initial_x:        '{INITIALX}',
+                    initial_y:        '{INITIALY}',
+                    initial_zoom:     '{INITIALZOOM}',
+                    background_color: '{BACKGROUNDCOLOR}',
+                    title_top:        '{TITLETOPTEXT}',
+                    title_bottom:     '{TITLEBOTTOMTEXT}',
+                    copyright_text:   '{COPYRIGHTTEXT}',
+                    copyright_url:    '{COPYRIGHTURL}'
+                } );
+            } );
         </script>
+
+{ADDITIONALHTMLHEADCONTENTS}
 	</head>
 
 	<body>
