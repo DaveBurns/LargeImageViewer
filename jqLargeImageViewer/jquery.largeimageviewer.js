@@ -183,8 +183,8 @@
             // level. The smallest zoom (level 0) is where the entire image fits into one tile. This stores
             // that information along with some precalculated info about each zoom level for use later.
             function calcImageExtents( origWidth, origHeight, tileSize ) {
-                var nextWidth = parseInt( origWidth, 10 ); // must do this conversion or else the while loop below does lexical instead
-                var nextHeight = parseInt( origHeight, 10 );  // of numerical comparisons which leads to hard to debug behavior.
+                var nextWidth = ~~origWidth;   // force the param to a int if not already one.
+                var nextHeight = ~~origHeight; // force the param to a int if not already one.
                 var divisor = 1;
                 var sizeArray = [];
 
@@ -192,8 +192,8 @@
 
                 var span;
 
-                tileSize = parseInt( tileSize, 10 );
-                while ( (nextWidth > tileSize) || (nextHeight > tileSize) ) {
+                tileSize = ~~tileSize;  // force the param to a int if not already one.
+                while ( ( nextWidth > tileSize ) || ( nextHeight > tileSize ) ) {
                     // Always base the calculation off the original dimensions.
                     // This prevents rounding errors from accumulating.
                     nextWidth = origWidth / divisor;
@@ -202,9 +202,9 @@
                     span = {};
                     span.widthInPixels = nextWidth;
                     span.heightInPixels = nextHeight;
-                    span.widthInTiles = Math.ceil(span.widthInPixels / tileSize);
-                    span.heightInTiles = Math.ceil(span.heightInPixels / tileSize);
-                    sizeArray.push(span);
+                    span.widthInTiles = Math.ceil( span.widthInPixels / tileSize );
+                    span.heightInTiles = Math.ceil( span.heightInPixels / tileSize );
+                    sizeArray.push( span );
 
                     divisor *= 2;
                 }
