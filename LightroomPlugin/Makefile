@@ -19,7 +19,7 @@ DEVDIR_LIVJS_FILES = $(addprefix $(DEVDIR)/, $(EXTERNAL_LIVJS_FILES))
 
 LUA_FILES     = $(notdir $(wildcard $(DEVDIR)/*.lua))
 LUAC_FILES    = $(addprefix $(BUILDDIR)/, $(LUA_FILES:=c))
-NONLUA_FILES  = $(notdir $(filter-out %.lua, $(wildcard $(DEVDIR)/*)))
+FNONLUA_FILES  = $(notdir $(filter-out %.lua %.log, $(wildcard $(DEVDIR)/*)))
 ifeq (,$(findstring jquery, $(NONLUA_FILES)))
 NONLUA_FILES += $(notdir $(DEVDIR_LIVJS_FILES))
 endif
@@ -31,7 +31,7 @@ MINOR         = $(shell echo $(VERSION) | cut -d "," -f 2 | cut -d "=" -f 2)
 REVISION      = $(shell echo $(VERSION) | cut -d "," -f 3 | cut -d "=" -f 2)
 BUILD         = $(shell echo $(VERSION) | cut -d "," -f 4 | cut -d "=" -f 2)
 
-ZIPFILE = $(BUILDDIR)/$(NAME)-$(MAJOR).$(MINOR).$(REVISION).$(BUILD).zip
+ZIPFILE = build/$(NAME)-$(MAJOR).$(MINOR).$(REVISION).$(BUILD).zip
 
 .PHONY: debug clean package updatelivjs
 
@@ -59,7 +59,7 @@ $(BUILDDIR)/%.luac: $(DEVDIR)/%.lua
 
 define COPY_FILE
 $(3)/$(1) : $(2)/$(1)
-	cp $$< $$@
+	cp -r $$< $$@
 endef
 
 $(foreach filename, $(NONLUA_FILES), $(eval $(call COPY_FILE,$(filename),$(DEVDIR),$(BUILDDIR))))
