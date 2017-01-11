@@ -9,6 +9,7 @@ UGLIFYJS_OPTIONS=-m
 
 CURRENTDEVDIR=/Users/Dave/projects/daveburnsphoto.com/panoramas/africa/TarangireRiverOverlook/
 WPPLUGINDIR=/Users/Dave/projects/LIV/WordPressPlugin
+LRPLUGINDIR=/Users/Dave/projects/LIV/LightroomPlugin/LrLargeImageViewer.lrdevplugin
 
 JS=jquery.largeimageviewer.js
 MINJS=$(JS:.js=.min.js)
@@ -17,6 +18,7 @@ MINJS=$(JS:.js=.min.js)
 
 install: $(MINJS)
 	cp $(JS) $(MINJS) $(WPPLUGINDIR)/js
+	cp $(JS) $(MINJS) $(LRPLUGINDIR)
 	cp $(JS) $(MINJS) $(CURRENTDEVDIR)
 
 $(MINJS): $(JS)
