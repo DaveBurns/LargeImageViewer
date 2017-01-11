@@ -1,69 +1,78 @@
-From http://forums.adobe.com/message/5041553
+Prereqs:
+    you must have Xcode installed with the command line tools enabled
+    you must install HomeBrew
+    with HomeBrew, you must: brew install pkg-config
+        It gave me version 0.29.1_2
 
-1. Download ImageMagick.tar.gz distribution to /Users/John.  Unpack it by doing:
-    cd /Users/John
-    tar xvfz ImageMagick.tar.gz
-See http://www.imagemagick.org/script/advanced-unix-installation.php
-2. Download the jpegsrc.tar.gz library from:
-    http://www.imagemagick.org/download/delegates/
-to /Users/John/ImageMagick and unpack it with:
-    cd /Users/John/ImageMagick
-    tar xvfz jpegsrc.tar.gz
-    mv jpegsrc<version> jpeg
-3. Configure and build the jpeg library:
-    cd jpeg
-    ./configure --disable-shared
-    make clean; make
-4. Download the libpng.tar.gz library from:
-    http://www.imagemagick.org/download/delegates/
-to /Users/John/ImageMagick and unpack it with:
-    cd /Users/John/ImageMagick
-    tar xvfz libpng.tar.gz
-    mv libpng<verszion> png
-5. Configure and build the png library:
-    cd png
-    ./configure --disable-shared
-    make clean; make
-6. Configure and build ImageMagick; copy configure.sh to ImageMagick folder and do:
-    cd /Users/John/ImageMagick
-    sh configure.sh
-    make clean; make
-7. Verify that composite is only loading dynamic libraries from /System and /usr/lib:
-    otool -L utilities/composite
-8. Copy utilities/composite and config/delegates.xml to anyfile.lrdevplugin.
+Notes:
+    The delegate libraries may have newer versions. Check this URL for a listing and update the URLs for curl appropriately: http://www.imagemagick.org/download/delegates/
 
 
-And here's the contents of the "configure.sh" script referenced above:
+mkdir ImageMagick
+cd ImageMagick
+curl -O https://www.imagemagick.org/download/ImageMagick.tar.gz
+tar xzf ImageMagick.tar.gz
+# change this next line to match the version downloaded
+cd ImageMagick-7.0.3-9/
 
-# Image-magick configure script for configuring with Any File
-# --disable-opencl \
-./configure \
---disable-installed \
---disable-shared \
---enable-delegate-build \
---prefix=/ImageMagick-6.7.3-7 \
---disable-dependency-tracking \
---with-x=no \
---without-perl \
---with-freetype=no \
---with-jp2=no \
---with-tiff=no \
---with-magick-plus-plus=no \
---with-bzlib=no
+# download and build the JPEG delegate
+curl -O http://www.imagemagick.org/download/delegates/jpegsrc.v9a.tar.gz
+tar xzf jpegsrc.v9a.tar.gz
+mv jpeg-9a jpeg
+cd jpeg
+./configure --disable-shared --prefix=/Users/Dave/projects/ImageMagick
+make clean && make && make install
+cd ..
 
-Following up on this, this was great info and went pretty smoothly. The hiccup was when I wanted to include
-TIFF support since I need that. It wasn't as trivial as the jpeg or png delegates and also required tweaks
-to the main IM build. Here are my supplemental notes:
+# download and build the PNG delegate
+curl -O http://www.imagemagick.org/download/delegates/libpng-1.6.24.tar.gz
+tar xzf libpng-1.6.24.tar.gz
+mv libpng-1.6.24 png
+cd png
+./configure --disable-shared --prefix=/Users/Dave/projects/ImageMagick
+make clean && make && make install
+cd ..
 
-- Using the same pattern of commands as for the jpeg and png libraries above, download the latest tiff library from the IM site, unzip/untar it, and rename the directory to tiff/
-- cd to tiff
-- Config the TIFF build using "./configure --disable-shared --disable-lzma"
-- run the build: "make"
+curl -O http://www.imagemagick.org/download/delegates/zlib-1.2.8.tar.gz
+tar xzf zlib-1.2.8.tar.gz
+mv zlib-1.2.8 zlib
+cd zlib
+./configure --static --prefix=/Users/Dave/projects/ImageMagick
+make clean && make && make install
+cd ..
 
-- cd .. to the IM directory
-- Use John's configure.sh file as above but add the following:
-    --disable-opencl --with-tiff=yes --without-lzma CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
-- run the build: "make"
-- as with John's notes, run otool to verify no non-core dependencies.
 
-If it matters, I was using Xcode 4.6 and gcc version 4.2.1.
+# download and build the TIFF delegate
+curl -O http://www.imagemagick.org/download/delegates/tiff-4.0.4.tar.gz
+tar xzf tiff-4.0.4.tar.gz
+mv tiff-4.0.4 tiff
+cd tiff
+# use disable-pixarlog and disable-zlib because the configure tests for IM that test if libtiff
+# is ok are broken and don’t link the internal test C file against -lz.
+#./configure --disable-shared --prefix=/Users/Dave/projects/ImageMagick
+./configure --disable-shared  --prefix=/Users/Dave/projects/ImageMagick --disable-pixarlog --disable-zlib
+make clean && make && make install
+cd ..
+curl -O http://www.imagemagick.org/download/delegates/freetype-2.6.5.tar.gz
+tar xzf freetype-2.6.5.tar.gz
+mv freetype-2.6.5 freetype
+cd freetype
+./configure --disabled-shared --prefix=/Users/Dave/projects/ImageMagick
+make clean && make && make install
+cd ..
+
+# now build ImageMagick
+./configure --disable-installed --disable-shared --enable-delegate-build --prefix=/Users/Dave/projects/ImageMagick --disable-dependency-tracking --without-x --without-perl --without-magick-plus-plus --without-bzlib --without-zlib --without-xml --without-lzma --with-zero-configuration --disable-docs
+make clean && make && make install
+
+
+Verify with:
+    otool -L ../bin/magick
+
+This output seems ok:
+
+./magick:
+	/usr/lib/libbz2.1.0.dylib (compatibility version 1.0.0, current version 1.0.5)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1238.0.0)
+
+
