@@ -1,15 +1,126 @@
+--[[----------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2017 David F. Burns
+
+This file is part of LrLargeImageViewer.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------]]
+
+require 'strict'
+local Debug = require 'Debug'.init()
+
 -- Lightroom API
 local LrPathUtils = import 'LrPathUtils'
 local LrFileUtils = import 'LrFileUtils'
-local LrErrors = import 'LrErrors'
+--local LrErrors = import 'LrErrors'
 local LrTasks = import 'LrTasks'
-local LrLogger = import 'LrLogger'
-local LrFunctionContext = import 'LrFunctionContext'
+--local LrFunctionContext = import 'LrFunctionContext'
+local LrBinding = import 'LrBinding'
+--local LrColor = import 'LrColor'
 
-DFB = { }
+local utf8 = require 'utf8'
 
-DFB.livLogger = LrLogger( 'DFB' )
-DFB.livLogger:enable( 'print' )
+local DFB = { }
+
+
+function DFB.isTableEmpty( t )
+    return next( t ) == nil
+end
+
+
+function DFB.LrObservableTableToString( t, keysToSkip )
+--    Debug.logn( 'LrObservableTableToString: ' .. DFB.tableToString( t ) )
+
+    local function table_r ( t, name, indent )
+        local out = {}	-- result
+        local tag = ''
+
+        if keysToSkip  and type( keysToSkip ) == 'table' then
+            if keysToSkip[ name ] then
+                return '\n'
+            end
+        end
+
+
+        if name then
+            tag = indent .. name .. ' = '
+        end
+
+        if type( t ) == "table" then
+            table.insert( out, tag .. '{' )
+            for key, value in t:pairs() do
+                table.insert( out, table_r( value, key, indent .. '\t' ) )
+            end
+            table.insert( out, indent .. '}' )
+        else
+            local val
+
+            if type( t ) == 'number' or type( t ) == 'boolean' then
+                val = tostring( t )
+            else
+                val = '"' .. tostring( t ) .. '"'
+            end
+            table.insert( out, tag .. val .. ',' )
+        end
+
+        return table.concat( out, '\n' )
+    end
+
+    local result = table_r( t, nil, '' )
+
+    Debug.logn( 'LrObservableTableToString result: ' .. result )
+
+    return result
+end
+
+
+function DFB.maybeConvertToNativeLrObject( s )
+    if type( s ) == 'string' then
+        if s:find( '^AgColor' ) then
+            local constructor = s:gsub( 'AgColor', 'LrColor' )
+            return loadstring( 'local LrColor = import "LrColor"; return ' .. constructor )()
+        end
+    end
+
+    return s
+end
+
+
+function DFB.StringToObservableTable( s, context )
+    local t = loadstring( 'return ' .. s )()
+
+    local properties = LrBinding.makePropertyTable( context ) -- make a table
+
+    for k, v in pairs( t ) do
+        v = DFB.maybeConvertToNativeLrObject( v )
+        properties[ k ] = v
+    end
+
+    --Debug.logn( 'LrObservableTableToString: ' .. DFB.tableToString( properties ) )
+
+    return properties
+end
+
 
 -- Split text into a list consisting of the strings in text,
 -- separated by strings matching delimiter (which may be a pattern). 
@@ -21,7 +132,7 @@ function DFB.splitString(delimiter, text)
 	local pos = 1
 
 	if string.find( '', delimiter, 1 ) then -- this would result in endless loops
-		livLogger:error( 'delimiter matches empty string!' )
+		Debug.logn( 'delimiter matches empty string!' )
 	end
 
 	while 1 do
@@ -38,18 +149,16 @@ function DFB.splitString(delimiter, text)
 	return list
 end
 
--- TODO: make this detect if message is a table and call tableToString implicitly on it
-function DFB.logmsg( message )
-    if type( message ) == "table" then
-        message = DFB.tableToString( message )
-    end
 
-	local output = DFB.splitString( '\n', message )
-
-	for i,v in ipairs( output ) do
-		DFB.livLogger:trace( v )
-	end
+function DFB.stringStarts( s, start )
+    return string.sub( s, 1, string.len( start )) == start
 end
+
+
+function DFB.stringEnds( s, suffix )
+    return suffix == '' or string.sub( s, -string.len( suffix ) ) == suffix
+end
+
 
 -- From: http://www.hpelbers.org/lua/print_r
 -- Copyright 2009: hans@hpelbers.org
@@ -57,7 +166,7 @@ end
 function DFB.tableToString( t, name, indent )
 	local tableList = {}
 
-	function table_r (t, name, indent, full)
+	local function table_r (t, name, indent, full)
 		local id = not full and name
 			or type(name) ~= "number" and tostring(name) or '['..name..']'
 		local tag = indent .. id .. ' = '
@@ -76,7 +185,7 @@ function DFB.tableToString( t, name, indent )
 			else table.insert(out,tag .. '{}') end
 			end
 		else 
-			local val = type(t)~="number" and type(t)~="boolean" and '"'..tostring(t)..'"' or tostring(t)
+			local val = type(t) ~= "number" and type(t) ~= "boolean" and '"' .. tostring( t ) .. '"' or tostring( t )
 			table.insert(out, tag .. val)
 		end
 
@@ -88,23 +197,37 @@ end
 
 
 function DFB.replaceTokens( tokenTable, str )
-	local numSubs
+	local numSubs, oldStr
 
 	repeat
-		str, numSubs = str:gsub( '{(.-)}', function( token ) return tostring( tokenTable[token] ) end )
-	until numSubs == 0
+        oldStr = str
+		str, numSubs = str:gsub( '{(.-)}', function( token )
+            if ( tokenTable[ token ] ~= nil ) then
+                return tostring( tokenTable[token] )
+            else
+                return nil -- this case allows for things wrapped in {}'s that are not meant to be tokens
+            end
+        end )
+	until oldStr == str
 
 	return str
 end
 
 
--- TODO: this should check to see if the quotes are already there before adding them
-function DFB.quoteIfNecessary( v )
-    if not v then return ''
-    else
-        if v:find ' ' then v = '"'..v..'"' end
+-- This is function trim6() from http://lua-users.org/wiki/StringTrim
+function DFB.trim( str )
+    return str:match'^()%s*$' and '' or str:match'^%s*(.*%S)'
+end
+
+
+function DFB.quoteIfNecessary( s )
+    if not s then return '' end
+
+    if s:find ' ' and not DFB.stringStarts( s, '"' ) and not DFB.stringEnds( s, '"' ) then
+        s = '"' .. s .. '"'
     end
-    return v
+
+    return s
 end
 
 
@@ -112,7 +235,7 @@ function DFB.deleteFile( path, deleteDirectory )
 	-- default values
 	deleteDirectory = deleteDirectory or false -- default is to not allow deleting directories (Lr allows one to delete a dir even if it has files in it)
 
-	DFB.logmsg( "Deleting path: " .. path )
+	Debug.logn( "Deleting path: " .. path )
 
 	local result, message
 
@@ -149,7 +272,7 @@ function DFB.createDirectory( path, failIfExists )
 	-- default values
 	failIfExists = failIfExists or false -- default is do not fail if it already exists. Just quietly return success.
 
-	DFB.logmsg( "Creating directory: " .. path )
+	Debug.logn( "Creating directory: " .. path )
 
 	local result, message
 
@@ -157,11 +280,11 @@ function DFB.createDirectory( path, failIfExists )
 	result = LrFileUtils.exists( path )
 	if ( result ) then
 		if ( result == "file" ) then
-			DFB.logmsg("\tAlready exists as a file" )
+			Debug.logn("\tAlready exists as a file" )
 			return "fail", "File already exists"
 		elseif ( result == "directory" ) then
 			if ( failIfExists == "true" ) then
-				DFB.logmsg("\tAlready exists as a directory" )
+				Debug.logn("\tAlready exists as a directory" )
 				return "fail", "Directory already exists"
 			end
 			-- directory exists already so just return now
@@ -172,17 +295,17 @@ function DFB.createDirectory( path, failIfExists )
 	-- create the directory
 	result, message = LrFileUtils.createAllDirectories( path )
 	if ( result ) then
-		DFB.logmsg("\tINFO: had to create one or more parent directories")
+		Debug.logn("\tINFO: had to create one or more parent directories")
 	end
 
 	-- check for existence again since results of createAllDirectories is not clear
 	result = LrFileUtils.exists( path )
 	if ( not result ) then
-		DFB.logmsg( "\tFailed" )
+		Debug.logn( "\tFailed" )
 		return "fail", "ERROR: could not create directory"
 	end
 
-	DFB.logmsg( "\tsuccess" )
+	Debug.logn( "\tsuccess" )
 	return "success", nil
 end
 
@@ -206,18 +329,18 @@ function DFB.copyFile( sourcePath, destPath, overwrite, createDestPath )
 	overwrite = overwrite or false -- default is to fail if destPath already exists
 	createDestPath = createDestPath or false -- default is to fail if destPath's dir does not exist
 
-	DFB.logmsg( "Copy file from source: " .. sourcePath )
-	DFB.logmsg( "\tto dest: " .. destPath )
+	Debug.logn( "Copy file from source: " .. sourcePath )
+	Debug.logn( "\tto dest: " .. destPath )
 
 	local result, message
 
 	-- check that the source exists
 	result = LrFileUtils.exists( sourcePath )
 	if ( not result ) then
-		DFB.logmsg( "\tERROR: source path does not exist" )
+		Debug.logn( "\tERROR: source path does not exist" )
 		return "fail", "Source path does not exist"
 	elseif ( result == "directory" ) then
-		DFB.logmsg( "\tERROR: source path is a directory, not a file" )
+		Debug.logn( "\tERROR: source path is a directory, not a file" )
 		return "fail", "Source path is a directory, not a file"
 	end
 
@@ -225,16 +348,16 @@ function DFB.copyFile( sourcePath, destPath, overwrite, createDestPath )
 	result = LrFileUtils.exists( destPath )
 	if ( result ) then
 		if ( result == "directory" ) then
-			DFB.logmsg( "\tERROR: destPath is a directory. It must have a filename as well." )
+			Debug.logn( "\tERROR: destPath is a directory. It must have a filename as well." )
 			return "fail", "destPath is a directory. It must have a filename as well."
 		elseif ( result == "file" ) then
 			if ( not overwrite ) then
-				DFB.logmsg( "\tERROR: dest file already exists" )
+				Debug.logn( "\tERROR: dest file already exists" )
 				return "fail", "dest file already exists"
 			end
 			result, message = LrFileUtils.moveToTrash( destPath )
 			if ( not result ) then
-				DFB.logmsg( "\tERROR: could not move existing dest file to trash" )
+				Debug.logn( "\tERROR: could not move existing dest file to trash" )
 				return "fail", message
 			end
 		end
@@ -244,12 +367,12 @@ function DFB.copyFile( sourcePath, destPath, overwrite, createDestPath )
 	result = LrFileUtils.exists( LrPathUtils.parent( destPath ) )
 	if ( not result ) then
 		if ( not createDestPath ) then
-			DFB.logmsg( "\tERROR: destination directory does not exist" )
+			Debug.logn( "\tERROR: destination directory does not exist" )
 			return "fail", "Destination directory does not exist"
 		end
 		result, message = DFB.createDirectory( LrPathUtils.parent( destPath ) )
 		if ( result == "fail" ) then
-			DFB.logmsg( "\tERROR: could not create destination directory" )
+			Debug.logn( "\tERROR: could not create destination directory" )
 			return result, message
 		end
 	end
@@ -258,21 +381,256 @@ function DFB.copyFile( sourcePath, destPath, overwrite, createDestPath )
 	result = LrFileUtils.copy( sourcePath, destPath )
 	-- It's not clear whether the copy function will actually return nil upon failure
 	if ( not result ) then
-		DFB.logmsg( "\tERROR: the file copy failed" )
+		Debug.logn( "\tERROR: the file copy failed" )
 		return "fail", "copy failed"
 	end
 
 	-- check that dest exists
 	result = LrFileUtils.exists( destPath )
 	if ( not result ) then
-		DFB.logmsg( "\tERROR: Copy failed" )
+		Debug.logn( "\tERROR: Copy failed" )
 		return "fail", "Error when copying file"
 	end
 
-	DFB.logmsg( "\tsuccess" )
+	Debug.logn( "\tsuccess" )
 	return "success", nil
 end
 
+
+-- Replaces html entities on the selected text
+-- From: http://lua-users.org/files/wiki_insecure/users/WalterCruz/htmlentities.lua
+-- if I ever need to encode these entries in decimal myself, this site has all the codes:
+-- http://www.utf8-chartable.de/unicode-utf8-table.pl?utf8=dec&unicodeinhtml=dec&htmlent=1
+function DFB.encodeHTMLEntities( str )
+    local entities = {
+--        [' '] = '&nbsp;' ,
+        ['¡'] = '&iexcl;' ,
+        ['¢'] = '&cent;' ,
+        ['£'] = '&pound;' ,
+        ['¤'] = '&curren;' ,
+        ['¥'] = '&yen;' ,
+        ['¦'] = '&brvbar;' ,
+        ['§'] = '&sect;' ,
+        ['¨'] = '&uml;' ,
+--        ['\194\169'] = '&copy;' ,
+        ['©'] = '&copy;' ,
+        ['ª'] = '&ordf;' ,
+        ['«'] = '&laquo;' ,
+        ['¬'] = '&not;' ,
+        ['­'] = '&shy;' ,
+        ['®'] = '&reg;' ,
+        ['¯'] = '&macr;' ,
+        ['°'] = '&deg;' ,
+        ['±'] = '&plusmn;' ,
+        ['²'] = '&sup2;' ,
+        ['³'] = '&sup3;' ,
+        ['´'] = '&acute;' ,
+        ['µ'] = '&micro;' ,
+        ['¶'] = '&para;' ,
+        ['·'] = '&middot;' ,
+        ['¸'] = '&cedil;' ,
+        ['¹'] = '&sup1;' ,
+        ['º'] = '&ordm;' ,
+        ['»'] = '&raquo;' ,
+        ['¼'] = '&frac14;' ,
+        ['½'] = '&frac12;' ,
+        ['¾'] = '&frac34;' ,
+        ['¿'] = '&iquest;' ,
+        ['À'] = '&Agrave;' ,
+        ['Á'] = '&Aacute;' ,
+        ['Â'] = '&Acirc;' ,
+        ['Ã'] = '&Atilde;' ,
+        ['Ä'] = '&Auml;' ,
+        ['Å'] = '&Aring;' ,
+        ['Æ'] = '&AElig;' ,
+        ['Ç'] = '&Ccedil;' ,
+        ['È'] = '&Egrave;' ,
+        ['É'] = '&Eacute;' ,
+        ['Ê'] = '&Ecirc;' ,
+        ['Ë'] = '&Euml;' ,
+        ['Ì'] = '&Igrave;' ,
+        ['Í'] = '&Iacute;' ,
+        ['Î'] = '&Icirc;' ,
+        ['Ï'] = '&Iuml;' ,
+        ['Ð'] = '&ETH;' ,
+        ['Ñ'] = '&Ntilde;' ,
+        ['Ò'] = '&Ograve;' ,
+        ['Ó'] = '&Oacute;' ,
+        ['Ô'] = '&Ocirc;' ,
+        ['Õ'] = '&Otilde;' ,
+        ['Ö'] = '&Ouml;' ,
+        ['×'] = '&times;' ,
+        ['Ø'] = '&Oslash;' ,
+        ['Ù'] = '&Ugrave;' ,
+        ['Ú'] = '&Uacute;' ,
+        ['Û'] = '&Ucirc;' ,
+        ['Ü'] = '&Uuml;' ,
+        ['Ý'] = '&Yacute;' ,
+        ['Þ'] = '&THORN;' ,
+        ['ß'] = '&szlig;' ,
+        ['à'] = '&agrave;' ,
+        ['á'] = '&aacute;' ,
+        ['â'] = '&acirc;' ,
+        ['ã'] = '&atilde;' ,
+        ['ä'] = '&auml;' ,
+        ['å'] = '&aring;' ,
+        ['æ'] = '&aelig;' ,
+        ['ç'] = '&ccedil;' ,
+        ['è'] = '&egrave;' ,
+        ['é'] = '&eacute;' ,
+        ['ê'] = '&ecirc;' ,
+        ['ë'] = '&euml;' ,
+        ['ì'] = '&igrave;' ,
+        ['í'] = '&iacute;' ,
+        ['î'] = '&icirc;' ,
+        ['ï'] = '&iuml;' ,
+        ['ð'] = '&eth;' ,
+        ['ñ'] = '&ntilde;' ,
+        ['ò'] = '&ograve;' ,
+        ['ó'] = '&oacute;' ,
+        ['ô'] = '&ocirc;' ,
+        ['õ'] = '&otilde;' ,
+        ['ö'] = '&ouml;' ,
+        ['÷'] = '&divide;' ,
+        ['ø'] = '&oslash;' ,
+        ['ù'] = '&ugrave;' ,
+        ['ú'] = '&uacute;' ,
+        ['û'] = '&ucirc;' ,
+        ['ü'] = '&uuml;' ,
+        ['ý'] = '&yacute;' ,
+        ['þ'] = '&thorn;' ,
+        ['ÿ'] = '&yuml;' ,
+        ['"'] = '&quot;' ,
+        ["'"] = '&#39;' ,
+        ['<'] = '&lt;' ,
+        ['>'] = '&gt;' ,
+        ['&'] = '&amp;'
+    }
+
+    return utf8.replace( str, entities )
+end
+
+--    -- Here we search for non standard characters and replace them if
+--    -- we have a translation. The regexp could be changed to include an
+--    -- exact list with the above characters [áéíó...] and then remove
+--    -- the 'if' below, but it's easier to maintain like this...
+--    return string.gsub( str, "[^a-zA-Z0-9 _]",
+--        function (v)
+--            if entities[v] then return entities[v] else return v end
+--        end)
+--end
+
+
+-- From: http://lua-users.org/files/wiki_insecure/users/WalterCruz/htmlunentities.lua
+function DFB.decodeHTMLEntities( str )
+    local entities = {
+        nbsp = ' ' ,
+        iexcl = '¡' ,
+        cent = '¢' ,
+        pound = '£' ,
+        curren = '¤' ,
+        yen = '¥' ,
+        brvbar = '¦' ,
+        sect = '§' ,
+        uml = '¨' ,
+        copy = '©' ,
+        ordf = 'ª' ,
+        laquo = '«' ,
+        ['not'] = '¬' ,
+        shy = '­' ,
+        reg = '®' ,
+        macr = '¯' ,
+        ['deg'] = '°' ,
+        plusmn = '±' ,
+        sup2 = '²' ,
+        sup3 = '³' ,
+        acute = '´' ,
+        micro = 'µ' ,
+        para = '¶' ,
+        middot = '·' ,
+        cedil = '¸' ,
+        sup1 = '¹' ,
+        ordm = 'º' ,
+        raquo = '»' ,
+        frac14 = '¼' ,
+        frac12 = '½' ,
+        frac34 = '¾' ,
+        iquest = '¿' ,
+        Agrave = 'À' ,
+        Aacute = 'Á' ,
+        Acirc = 'Â' ,
+        Atilde = 'Ã' ,
+        Auml = 'Ä' ,
+        Aring = 'Å' ,
+        AElig = 'Æ' ,
+        Ccedil = 'Ç' ,
+        Egrave = 'È' ,
+        Eacute = 'É' ,
+        Ecirc = 'Ê' ,
+        Euml = 'Ë' ,
+        Igrave = 'Ì' ,
+        Iacute = 'Í' ,
+        Icirc = 'Î' ,
+        Iuml = 'Ï' ,
+        ETH = 'Ð' ,
+        Ntilde = 'Ñ' ,
+        Ograve = 'Ò' ,
+        Oacute = 'Ó' ,
+        Ocirc = 'Ô' ,
+        Otilde = 'Õ' ,
+        Ouml = 'Ö' ,
+        times = '×' ,
+        Oslash = 'Ø' ,
+        Ugrave = 'Ù' ,
+        Uacute = 'Ú' ,
+        Ucirc = 'Û' ,
+        Uuml = 'Ü' ,
+        Yacute = 'Ý' ,
+        THORN = 'Þ' ,
+        szlig = 'ß' ,
+        agrave = 'à' ,
+        aacute = 'á' ,
+        acirc = 'â' ,
+        atilde = 'ã' ,
+        auml = 'ä' ,
+        aring = 'å' ,
+        aelig = 'æ' ,
+        ccedil = 'ç' ,
+        egrave = 'è' ,
+        eacute = 'é' ,
+        ecirc = 'ê' ,
+        euml = 'ë' ,
+        igrave = 'ì' ,
+        iacute = 'í' ,
+        icirc = 'î' ,
+        iuml = 'ï' ,
+        eth = 'ð' ,
+        ntilde = 'ñ' ,
+        ograve = 'ò' ,
+        oacute = 'ó' ,
+        ocirc = 'ô' ,
+        otilde = 'õ' ,
+        ouml = 'ö' ,
+        divide = '÷' ,
+        oslash = 'ø' ,
+        ugrave = 'ù' ,
+        uacute = 'ú' ,
+        ucirc = 'û' ,
+        uuml = 'ü' ,
+        yacute = 'ý' ,
+        thorn = 'þ' ,
+        yuml = 'ÿ' ,
+        quot = '"' ,
+        lt = '<' ,
+        gt = '>' ,
+        amp = ''
+    }
+
+    return string.gsub( str, "&%a+;",
+        function ( entity )
+            return entities[string.sub(entity, 2, -2)] or entity
+        end)
+end
 
 
 -- input:
@@ -292,6 +650,10 @@ end
 
 function DFB.execAndCapture( executable, arguments, options )
 
+    if not LrTasks.canYield() then
+        return false, 'Can\'t yield. execAndCapture must be called within a task.'
+    end
+
 	-- default options
 	options.debug = options.debug or false
 	options.workingDir = options.workingDir or nil
@@ -304,30 +666,28 @@ function DFB.execAndCapture( executable, arguments, options )
 	-- begin the command line with the executable
 
 	table.insert( localParams, DFB.quoteIfNecessary( executable ) )
---	table.insert( localParams, executable )
 
 	-- append arguments table to param table here
 
-	DFB.logmsg( "\t\tAppending arguments" )
-	for i, v in ipairs( arguments ) do
+	for _, v in ipairs( arguments ) do
 		table.insert( localParams, v )
 	end
 
 	-- append the shell redirections
 
-	DFB.logmsg( "\t\tAppending shell redirections" )
+	Debug.logn( "Appending shell redirections" )
 
 	-- a) create temp file names for output files here
 
 	local stdTempPath = LrPathUtils.getStandardFilePath( 'temp' )
 
-	local stdoutFile = LrPathUtils.child( stdTempPath, 'livStdoutTemp.txt' )
+	local stdoutFile = LrPathUtils.child( stdTempPath, 'dfbStdoutTemp.txt' )
 	stdoutFile = LrFileUtils.chooseUniqueFileName( stdoutFile )
-	DFB.logmsg( "\t\t\tstdoutFile: " .. stdoutFile );
+	Debug.logn( "\tstdoutFile: " .. stdoutFile );
 
-	local stderrFile = LrPathUtils.child( stdTempPath, 'livStderrTemp.txt' )
+	local stderrFile = LrPathUtils.child( stdTempPath, 'dfbStderrTemp.txt' )
 	stderrFile = LrFileUtils.chooseUniqueFileName( stderrFile )
-	DFB.logmsg( "\t\t\tstderrFile: " .. stderrFile );
+	Debug.logn( "\tstderrFile: " .. stderrFile );
 
 	-- b) redirect stdout and stderr
 
@@ -340,43 +700,43 @@ function DFB.execAndCapture( executable, arguments, options )
 		table.insert( localParams, stderrFile )
 	end
 
-	--      DFB.logmsg( to_string( localParams ) )
+	--      Debug.logn( to_string( localParams ) )
    
 	local execString = table.concat( localParams, ' ' )
 	if ( WIN_ENV ) then
 		execString = '"' .. execString .. '"'
 	end
 
-	DFB.logmsg( '\t\tshell command: ' .. execString )
+	Debug.logn( 'Shell command: ' .. execString )
 
 	-- launch the executable
    
-	DFB.logmsg( "\t\tRunning executable" )
+	Debug.logn( "Running executable" )
 	local execResult
 
-	if ( not LrTasks.pcall(	function()
+	if ( not LrTasks.pcall(	Debug.showErrors( function()
 								execResult = LrTasks.execute( execString )
-							end
+							end )
 							) ) then
-		DFB.logmsg( 'Error trying to execute external shell command' )
+		Debug.logn( 'Error trying to execute external shell command' )
 		return 1, execResult
 	end
 
 	if ( execResult ~= 0 ) then
-		DFB.logmsg( '\t\t\texecResult = ' .. execResult )
+		Debug.logn( 'execResult = ' .. execResult )
 	end
 
 	-- parse the output file(s)
 
-	DFB.logmsg( "\t\tReading output file(s)" )
+	Debug.logn( "Reading output file(s)" )
 
 	-- read the stdout file into the stdout table
 
 	local stdoutTable = { }
 	-- check for existence
-	result = LrFileUtils.exists( stdoutFile )
+	local result = LrFileUtils.exists( stdoutFile )
 	if ( not result ) then
-		DFB.logmsg( 'WARNING: non-fatal error: stdout file does not exist' )
+		Debug.logn( 'WARNING: non-fatal error: stdout file does not exist' )
 	else
 		for line in io.lines( stdoutFile ) do
 			-- filter according to regex if defined
@@ -390,9 +750,9 @@ function DFB.execAndCapture( executable, arguments, options )
 
 	local stderrTable = { }
 	if ( not options.stderrToStdoutFile ) then
-		result = LrFileUtils.exists( stdoutFile )
+		result = LrFileUtils.exists( stderrFile )
 		if ( not result ) then
-			DFB.logmsg( 'WARNING: non-fatal error: stderr file does not exist' )
+			Debug.logn( 'WARNING: non-fatal error: stderr file does not exist' )
 		else
 			for line in io.lines( stderrFile ) do
 				-- filter according to regex if defined
@@ -406,12 +766,12 @@ function DFB.execAndCapture( executable, arguments, options )
 	-- delete the temp output file(s)
 	local result, message = DFB.deleteFile( stdoutFile )
 	if ( result == "fail" ) then
-		DFB.logmsg( "\t\tNONFATAL ERROR: could not delete temp file (" .. message .. "): " .. stdoutFile )
+		Debug.logn( "\t\tNONFATAL ERROR: could not delete temp file (" .. message .. "): " .. stdoutFile )
 	end
 	if ( not options.stderrToStdoutFile ) then
 		result, message = DFB.deleteFile( stderrFile )
 		if ( result == "fail" ) then
-			DFB.logmsg( "\t\tNONFATAL ERROR: could not delete temp file (" .. message .. "): " .. stdoutFile )
+			Debug.logn( "\t\tNONFATAL ERROR: could not delete temp file (" .. message .. "): " .. stdoutFile )
 		end
 	end
 	

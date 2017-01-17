@@ -1,99 +1,70 @@
 --[[----------------------------------------------------------------------------
 
-LIVExportDialogSections.lua
-Export dialog customization for LIV
+MIT License
 
---------------------------------------------------------------------------------
+Copyright (c) 2017 David F. Burns
 
- Copyright 2013 David F. Burns
- All Rights Reserved.
+This file is part of LrLargeImageViewer.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ------------------------------------------------------------------------------]]
+
+require 'strict'
+local Debug = require 'Debug'.init()
 
 -- Lightroom SDK
 local LrBinding = import 'LrBinding'
 local LrView = import 'LrView'
 local LrDialogs = import 'LrDialogs'
---local LrFtp = import 'LrFtp'
+local LrPrefs = import 'LrPrefs'
 
 --============================================================================--
 
-LIVExportDialogSections = {}  -- TODO: for clarity, should rename to just LIVExportDialog
+local LIVExportDialog = {}
 
 -------------------------------------------------------------------------------
 
-local updateExportStatus = function( propertyTable, ... )
-	
-	local message = nil
-	
-	repeat
-		-- use a repeat loop to allow easy way to "break" out.
-		-- (It only goes through once.)
-		
-		if propertyTable.ftpPreset == nil then
-            -- TODO: fix this
-			message = LOC "$$$/FtpUpload/ExportDialog/Messages/SelectPreset=Select or Create an FTP preset"
-			break
-		end
-		
-		if propertyTable.putInSubfolder and ( propertyTable.path == "" or propertyTable.path == nil ) then
-            -- TODO: fix this
-			message = LOC "$$$/FtpUpload/ExportDialog/Messages/EnterSubPath=Enter a destination path"
-			break
-		end
-		
-		local fullPath = propertyTable.ftpPreset.path or ""
-		
-		if propertyTable.putInSubfolder then
-			fullPath = LrFtp.appendFtpPaths( fullPath, propertyTable.path )
-		end
-		
-		propertyTable.fullPath = fullPath
-		
-	until true
-	
-	if message then
-		propertyTable.message = message
-		propertyTable.hasError = true
-		propertyTable.hasNoError = false
-		propertyTable.LR_canExport = false
-		propertyTable.LR_cantExportBecause = message
-	else
-		propertyTable.message = nil
-		propertyTable.hasError = false
-		propertyTable.hasNoError = true
-		propertyTable.LR_canExport = true
-	end
-	
-	
+
+LIVExportDialog.startDialog = function( propertyTable )
+    Debug.logn( 'start dialog' )
+    local prefs = LrPrefs.prefsForPlugin()
+
+    propertyTable.liv_tiler_IMConvertPath = prefs.IMPath or ''
+    propertyTable.liv_page_GMapsApiKey = prefs.GMapsApiKey or ''
 end
 
--------------------------------------------------------------------------------
 
-function LIVExportDialogSections.startDialog( propertyTable )
-   DFB.logmsg("start dialog");
-
---[[	
-	propertyTable:addObserver( 'items', updateExportStatus )
-	propertyTable:addObserver( 'path', updateExportStatus )
-	propertyTable:addObserver( 'putInSubfolder', updateExportStatus )
-	propertyTable:addObserver( 'ftpPreset', updateExportStatus )
-
-	updateExportStatus( propertyTable )
-	--]]	
-end
-
-function LIVExportDialogSections.endDialog( propertyTable, why )
-   DFB.logmsg("end dialog");
+LIVExportDialog.endDialog = function( propertyTable, why )
+    Debug.logn( 'end dialog: ' .. why )
+	if Debug.enabled then
+    	Debug.lognpp( propertyTable )
+    end
 end
 
 
 -------------------------------------------------------------------------------
 
-function LIVExportDialogSections.updateExportSettings( exportSettings )
-	DFB.logmsg( 'Enter updateExportSettings' )
+LIVExportDialog.updateExportSettings = function( exportSettings )
+	Debug.logn( 'Enter updateExportSettings' )
 	
---	DFB.logmsg( DFB.tableToString( exportSettings, 'exportSettings BEFORE' ) )
+--	Debug.logn( DFB.tableToString( exportSettings, 'exportSettings BEFORE' ) )
 
 	-- These are default settings for controls that are not displayed in the LIV export dialog
 	exportSettings.LR_format = 'TIFF'
@@ -106,19 +77,17 @@ function LIVExportDialogSections.updateExportSettings( exportSettings )
 	exportSettings.liv_viewer_InitialX = 'center'
 	exportSettings.liv_viewer_InitialY = 'center'
 
---	DFB.logmsg( DFB.tableToString( exportSettings, 'exportSettings AFTER' ) )
+--	Debug.logn( DFB.tableToString( exportSettings, 'exportSettings AFTER' ) )
 end
 
 
 -------------------------------------------------------------------------------
 
-function LIVExportDialogSections.sectionsForTopOfDialog( f, propertyTable )
+LIVExportDialog.sectionsForTopOfDialog = function( f, propertyTable )
 
-	local f = LrView.osFactory()
+    Debug.logn("sectionsForTopOfDialog");
+
 	local bind = LrView.bind
-	local share = LrView.share
-
-	DFB.logmsg("sectionsForTopOfDialog");
 
 	local result = {
 	
@@ -128,29 +97,29 @@ function LIVExportDialogSections.sectionsForTopOfDialog( f, propertyTable )
 
 			f:row {
 				f:static_text {
-					title="Export To:",
+					title= 'Export To:',
 				},
 				f:edit_field {
-					value = bind "liv_tiler_ExportPath",
+					value = bind 'liv_tiler_ExportPath',
 					width_in_chars = 40
 				},
 				f:push_button {
-					title = "Browse...",
+					title = 'Browse...',
 					action = function(button)
-								local result
-								result = LrDialogs.runOpenPanel(
-														{
-															title = 'Choose an output folder',
-															prompt = 'Select',
-															canChooseFiles = false,
-															canChooseDirectories = true,
-															canCreateDirectories = true,
-														}
-													)
-								if ( result ) then
-									propertyTable.liv_tiler_ExportPath = result[1]
-								end
-							end,
+						local result
+						result = LrDialogs.runOpenPanel(
+												{
+													title = 'Choose an output folder',
+													prompt = 'Select',
+													canChooseFiles = false,
+													canChooseDirectories = true,
+													canCreateDirectories = true,
+												}
+											)
+						if ( result ) then
+							propertyTable.liv_tiler_ExportPath = result[1]
+						end
+					end,
 				},
 			},
 		}
@@ -161,27 +130,25 @@ function LIVExportDialogSections.sectionsForTopOfDialog( f, propertyTable )
 end
 
 
-function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
+LIVExportDialog.sectionsForBottomOfDialog = function( f, propertyTable )
 
-	local f = LrView.osFactory()
+    Debug.logn( 'sectionsForBottomOfDialog' );
+
 	local bind = LrView.bind
-	local share = LrView.share
-
-	DFB.logmsg("sectionsForBottomOfDialog");
 
 	local result = {
 		{
 			title = "Image & Tiler",
 			synopsis = bind {
 				keys = { 'liv_tiler_BorderColor', 'liv_tiler_TileJPEGQuality' },
-				operation = function( binder, values, fromTable )
+				operation = Debug.showErrors( function( binder, values, fromTable )
 					if fromTable then
-						syn_text = 'Border Color: ' .. values.liv_tiler_BorderColor
+						local syn_text = 'Border Color: ' .. values.liv_tiler_BorderColor
 						syn_text = syn_text .. '   JPEG Quality: ' .. values.liv_tiler_TileJPEGQuality
 						return syn_text
 					end
 					return LrBinding.kUnsupportedDirection
-				end,
+				end ),
 			},
 
 			f:row {
@@ -225,7 +192,6 @@ function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
 				},
 				f:slider {
 					value = bind 'liv_tiler_TileJPEGQuality',
---					tooltip = 'This is a tooltip', -- TODO
 					min = 0,
 					max = 100,
 					width = 200,
@@ -283,24 +249,24 @@ function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
 			title = 'Web Page',
 			synopsis = bind {
 				keys = { 'liv_page_PageTitle', 'liv_page_Size', 'liv_page_SizeCustomHeight', 'liv_page_SizeCustomWidth', 'liv_viewer_BackgroundColor' },
-				operation = function( binder, values, fromTable )
+				operation = Debug.showErrors( function( binder, values, fromTable )
 					if fromTable then
-						syn_text = 'Page Title: '
+						local syn_text = 'Page Title: '
 						if ( string.len( values.liv_page_PageTitle ) > 0 ) then
 							syn_text = syn_text .. 'set,'
 						else
 							syn_text = syn_text .. 'not set,'
 						end
 						if ( values.liv_page_Size == 'fit' ) then
-							syn_text = syn_text .. '   View Size: fit,'
+							syn_text = syn_text .. '   Viewer Size: fit,'
 						else
-							syn_text = syn_text .. '   View Size: ' .. values.liv_page_SizeCustomHeight .. 'px x ' .. values.liv_page_SizeCustomWidth .. 'px,'
+							syn_text = syn_text .. '   Viewer Size: ' .. values.liv_page_SizeCustomHeight .. 'px x ' .. values.liv_page_SizeCustomWidth .. 'px,'
 						end
 						syn_text = syn_text .. '   Background Color: ' .. values.liv_viewer_BackgroundColor
 						return syn_text
 					end
 					return LrBinding.kUnsupportedDirection
-				end,
+				end ),
 			},
 
 			f:row {
@@ -318,47 +284,31 @@ function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
 			f:row {
 				spacing = f:label_spacing(),
 				f:static_text {
-					title="Text overlays: ",
+					title="Text overlay - Top: ",
 					alignment = 'right',
 					width = LrView.share 'page_label_width',
-				},
-				f:checkbox {
-					spacing = f:label_spacing(),
-					alignment = 'right',
-					width = LrView.share 'overlay_label_width',
-					title = 'Top: ',
-					value = bind 'liv_page_textOverlayTop',
-					checked_value = true,
 				},
 				f:edit_field {
 					value = bind 'liv_page_textOverlayTopText',
 					width_in_chars = 40,
-					enabled = LrBinding.keyEquals( 'liv_page_textOverlayTop', true ),
 				},
 			},
 			f:row {
 				spacing = f:label_spacing(),
-				f:spacer {
-					width = LrView.share 'page_label_width',
-				},
-				f:checkbox {
-					spacing = f:label_spacing(),
-					alignment = 'right',
-					width = LrView.share 'overlay_label_width',
-					title = 'Bottom: ',
-					value = bind 'liv_page_textOverlayBottom',
-					checked_value = true,
-				},
+                f:static_text {
+                    title="Text overlay - Bottom: ",
+                    alignment = 'right',
+                    width = LrView.share 'page_label_width',
+                },
 				f:edit_field {
 					value = bind 'liv_page_textOverlayBottomText',
 					width_in_chars = 40,
-					enabled = LrBinding.keyEquals( 'liv_page_textOverlayBottom', true ),
 				},
 			},
 			f:row {
 				spacing = f:label_spacing(),
 				f:static_text {
-					title="View size: ",
+					title="Viewer size: ",
 					alignment = 'right',
 					width = LrView.share 'page_label_width',
 				},
@@ -440,30 +390,40 @@ function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
 					}
 				},
 			},
+            f:row {
+                spacing = f:label_spacing(),
+                f:static_text {
+                    title='Google Analytics ID: ',
+                    alignment = 'right',
+                    width = LrView.share 'page_label_width',
+                },
+                f:edit_field {
+                    value = bind 'liv_page_GAPropertyID',
+                    width_in_chars = 20,
+                },
+                f:static_text {
+                    title='(leave blank for none)',
+                },
+            },
 		},
 
 		{
 			title = 'User Interface',
 			synopsis = bind {
-				keys = { 'liv_viewer_InitialZoom', 'liv_viewer_ZoomSize', 'liv_viewer_ShowPanControl' },
-				operation = function( binder, values, fromTable )
+				keys = { 'liv_viewer_InitialZoom' },
+				operation = Debug.showErrors( function( binder, values, fromTable )
 					if fromTable then
-						syn_text = 'Initial Zoom: '
+						local syn_text = 'Initial Zoom: '
 						if ( values.liv_viewer_InitialZoom == 'fit' ) then
-							syn_text = syn_text .. 'best fit,'
+							syn_text = syn_text .. 'best fit'
 						else
-							syn_text = syn_text .. 'smallest,'
+							syn_text = syn_text .. 'smallest'
 						end
-						syn_text = syn_text .. '   Zoom Control: ' .. values.liv_viewer_ZoomSize .. ',   Pan Control: '
-						if ( values.liv_viewer_ShowPanControl ) then
-							syn_text = syn_text .. 'show'
-						else
-							syn_text = syn_text .. 'hide'
-						end
+
 						return syn_text
 					end
 					return LrBinding.kUnsupportedDirection
-				end,
+				end ),
 			},
 
 			f:row {
@@ -484,77 +444,11 @@ function LIVExportDialogSections.sectionsForBottomOfDialog( f, propertyTable )
 					checked_value = '1',
 				},
 			},
-			f:row {
-				spacing = f:label_spacing(),
-				f:static_text {
-					title='Zoom control: ',
-					alignment = 'right',
-					width = LrView.share 'ui_label_width',
-				},
-				f:popup_menu {
-					title = 'Zoom control',
-					value = bind 'liv_viewer_ZoomSize',
-					width_in_chars = 6,
-					items = {
-						{ title = 'Default', value = 'default' },
-						{ title = 'Small', value = 'small' },
-						{ title = 'Large', value = 'large' }
-					},
-				},
-			},
-			f:row {
-				spacing = f:label_spacing(),
-				f:static_text {
-					title='Pan control: ',
-					alignment = 'right',
-					width = LrView.share 'ui_label_width',
-				},
-				f:checkbox {
-					title="Show",
-					value = bind 'liv_viewer_ShowPanControl',					
-				},
-			},
 		},
 
-		{
-			title = "ImageMagick Location",
-			synopsis = bind { key = 'liv_tiler_IMConvertPath', object = propertyTable },
-
-			f:row {
-				f:static_text {
-					title="Path to ImageMagick convert program",
-				},
-				f:edit_field {
-					value = bind "liv_tiler_IMConvertPath",
-					width_in_chars = 25
-				},
-				f:push_button {
-					title = "Browse...",
-					action = function(button)
-                                local options =
-                                {
-                                    title = 'Find the ImageMagick convert program:',
-                                    prompt = 'Select',
-                                    canChooseFiles = true,
-                                    canChooseDirectories = false,
-                                    canCreateDirectories = false,
-                                    allowsMultipleSelection = false,
-                                }
-                                if ( WIN_ENV == true ) then
-                                    options.fileTypes = 'exe'
-                                else
-                                    options.fileTypes = ''
-                                end
-                                local result
-								result = LrDialogs.runOpenPanel( options )
-								if ( result ) then
-									propertyTable.liv_tiler_IMConvertPath = result[1]
-								end
-							end
-				},
-			},
-		},
 	}
 
 	return result	
 end
+
+return LIVExportDialog

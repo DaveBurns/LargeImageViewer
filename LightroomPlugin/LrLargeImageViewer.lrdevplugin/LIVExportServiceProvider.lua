@@ -1,27 +1,42 @@
 --[[----------------------------------------------------------------------------
 
-LIVExportServiceProvider.lua
-Export service provider description for LIV
+MIT License
 
---------------------------------------------------------------------------------
+Copyright (c) 2017 David F. Burns
 
- Copyright 2013 David F. Burns
- All Rights Reserved.
+This file is part of LrLargeImageViewer.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ------------------------------------------------------------------------------]]
 
-livDebug = "true"
---livDebug = nil
+require 'strict'
+local Debug = require 'Debug'.init()
 
-require 'DFB'
-DFB.logmsg( '********* LIV STARTUP ************' )
+local LrPathUtils = import 'LrPathUtils'
 
--- Lightroom SDK
--- local LrView = import 'LrView'
 
--- LargeImageViewer plug-in
-require 'LIVExportDialogSections'
-require 'LIVTask'
+Debug.logn( '********* LIV STARTUP ***********' )
+
+
+local LIVExportDialog = require 'LIVExportDialog'
+local LIVTask = require 'LIVTask'
 
 
 --============================================================================--
@@ -38,27 +53,23 @@ return {
 		{ key = 'liv_tiler_SharpenAmount', default = 2 },
 		{ key = 'liv_tiler_SharpenThreshold', default = 0.01 },
 		{ key = 'liv_page_PageTitle', default = '' },
-		{ key = 'liv_page_textOverlayTop', default = false },
 		{ key = 'liv_page_textOverlayTopText', default = '' },
-		{ key = 'liv_page_textOverlayBottom', default = false },
 		{ key = 'liv_page_textOverlayBottomText', default = '' },
-		{ key = 'liv_page_ImageDivID', default = 'largeImage' },
 		{ key = 'liv_page_Size', default = 'fit' },
 		{ key = 'liv_page_SizeCustomHeight', default = '500' },
 		{ key = 'liv_page_SizeCustomWidth', default = '500' },
+		{ key = 'liv_page_GAPropertyID', default = '' },
 		{ key = 'liv_viewer_BackgroundColor', default = 'black' },
 		{ key = 'liv_viewer_InitialZoom', default = 'fit' },
 		{ key = 'liv_viewer_InitialX', default = 'center' },
 		{ key = 'liv_viewer_InitialY', default = 'center' },
-		{ key = 'liv_viewer_ZoomSize', default = 'default' },
-		{ key = 'liv_viewer_ShowPanControl', default = false },
-		{ key = 'liv_tiler_IMConvertPath', default = 'C:\\Program Files\\ImageMagick-6.6.7-Q16\\convert.exe' }, -- TODO: ifdef default for MAC
-		{ key = 'liv_tiler_ExportPath', default = 'C:\\Users\\Dave\\Desktop\\livtest1' }, -- TODO: set more sensible default
+		{ key = 'liv_tiler_ExportPath', default = LrPathUtils.getStandardFilePath( 'desktop' ) .. '/large_image' },
 	},
-	startDialog = LIVExportDialogSections.startDialog,
-	endDialog = LIVExportDialogSections.endDialog,
-	sectionsForBottomOfDialog = LIVExportDialogSections.sectionsForBottomOfDialog,
-	sectionsForTopOfDialog = LIVExportDialogSections.sectionsForTopOfDialog,
-	updateExportSettings = LIVExportDialogSections.updateExportSettings,
-	processRenderedPhotos = LIVTask.processRenderedPhotos 
+
+	startDialog               = Debug.showErrors( LIVExportDialog.startDialog ),
+	endDialog                 = Debug.showErrors( LIVExportDialog.endDialog ),
+	sectionsForBottomOfDialog = Debug.showErrors( LIVExportDialog.sectionsForBottomOfDialog ),
+	sectionsForTopOfDialog    = Debug.showErrors( LIVExportDialog.sectionsForTopOfDialog ),
+	updateExportSettings      = Debug.showErrors( LIVExportDialog.updateExportSettings ),
+	processRenderedPhotos     = Debug.showErrors( LIVTask.processRenderedPhotos ),
 }
