@@ -46,8 +46,6 @@
             };
 
 
-            // TODO: is there a better pattern for getting this removed from minimized builds?
-            // TRY: http://stackoverflow.com/questions/2934509/exclude-debug-javascript-code-during-minification/
             function LIVLogger( item ) {
                 if ( ! options.debug ) { return; }
                 if ( window.console ) {
@@ -69,7 +67,7 @@
             // The lower left has coord (-50, -50) and the upper right has coord (50, 50).
 
             // Constructor
-            function LIVProjection(worldWidth, worldHeight) {
+            function LIVProjection( worldWidth, worldHeight ) {
                 this.worldWidth = worldWidth;
                 this.worldHeight = worldHeight;
                 //		log( this );
@@ -77,14 +75,14 @@
 
             // Override base google.maps.Projection functions
             LIVProjection.prototype.fromPointToLatLng = function( point, nowrap ) {
-                var lng = (point.x / this.worldWidth) * 100 - 50;
-                var lat = -(point.y / this.worldHeight) * 100 + 50;
-                return new google.maps.LatLng(lat, lng, nowrap);
+                var lng = ( point.x / this.worldWidth ) * 100 - 50;
+                var lat = -( point.y / this.worldHeight ) * 100 + 50;
+                return new google.maps.LatLng( lat, lng, nowrap );
             };
 
             LIVProjection.prototype.fromLatLngToPoint = function( latlng ) {
-                var x = this.worldWidth * ((latlng.lng() + 50) / 100);
-                var y = -this.worldHeight * ((latlng.lat() - 50) / 100);
+                var x = this.worldWidth * ( ( latlng.lng() + 50 ) / 100 );
+                var y = -this.worldHeight * ( ( latlng.lat() - 50) / 100 );
                 return new google.maps.Point( x, y );
             };
             // --------------------------------------------------------------
@@ -121,34 +119,34 @@
                     new_lng = 0;
                 }
                 else {
-                    if (sw.lng() < -50) {
-                        new_lng = -50 + ((ne.lng() - sw.lng()) / 2);
+                    if ( sw.lng() < -50 ) {
+                        new_lng = -50 + ( ( ne.lng() - sw.lng() ) / 2 );
                     }
-                    else if (ne.lng() > 50) {
-                        new_lng = 50 - ((ne.lng() - sw.lng()) / 2);
+                    else if ( ne.lng() > 50 ) {
+                        new_lng = 50 - ( ( ne.lng() - sw.lng() ) / 2 );
                     }
                 }
 
-                if (100 < span.lat()) {
+                if ( 100 < span.lat() ) {
 //                  log('image height smaller than viewport');
                     new_lat = 0;
                 }
                 else {
-                    if (sw.lat() < -50) {
-                        new_lat = -50 + ((ne.lat() - sw.lat()) / 2);
+                    if ( sw.lat() < -50 ) {
+                        new_lat = -50 + ( ( ne.lat() - sw.lat() ) / 2 );
                     }
-                    else if (ne.lat() > 50) {
-                        new_lat = 50 - ((ne.lat() - sw.lat()) / 2);
+                    else if ( ne.lat() > 50 ) {
+                        new_lat = 50 - ( ( ne.lat() - sw.lat() ) / 2 );
                     }
                 }
 
                 // log("desired lat=" + lat + " lng=" + lng + "\tnew lat=" + new_lat + " lng = " + new_lng);
 
                 // If necessary, move the map
-                if ( (Math.abs(new_lat - lat) > 0.0001) || (Math.abs(new_lng - lng) > 0.0001) ) {
+                if ( ( Math.abs( new_lat - lat) > 0.0001 ) || ( Math.abs( new_lng - lng ) > 0.0001 ) ) {
                     //				log("Desired lat=" + lat + " lng=" + lng + "\tconstrained lat=" + new_lat + " lng = " + new_lng);
                     //				log("Bounds: " + B.toString());
-                    map.setCenter( new google.maps.LatLng(new_lat, new_lng) );
+                    map.setCenter( new google.maps.LatLng( new_lat, new_lng ) );
                 }
             }
 
@@ -251,10 +249,10 @@
 
             // creates the tile URL if tiles were created using ImageMagick. Function signature is per Google spec. Don't add/change params.
             function imageMagickGetTileURL( tileCoord, zoomLevel ) {
-                if (tileCoord.x < 0 || tileCoord.x >= imageExtents[zoomLevel].widthInTiles) {
+                if ( tileCoord.x < 0 || tileCoord.x >= imageExtents[zoomLevel].widthInTiles ) {
                     return null;
                 }
-                if (tileCoord.y < 0 || tileCoord.y >= imageExtents[zoomLevel].heightInTiles) {
+                if ( tileCoord.y < 0 || tileCoord.y >= imageExtents[zoomLevel].heightInTiles ) {
                     return null;
                 }
 
@@ -280,7 +278,7 @@
                 }
                 else if ( typeof textOptions.text === 'string' ) {
                     myText = textOptions.text;
-                    if (typeof textOptions.cssClass === 'string' ) {
+                    if ( typeof textOptions.cssClass === 'string' ) {
                         cssClass = textOptions.cssClass;
                     }
                 }
@@ -416,6 +414,12 @@
             }
 
             options = $.extend( defaults, options );  // merge specified options onto defaults
+            // if an option is boolean, convert any strings ("true" / "false") to actual booleans
+            $.each( options, function( k, v ) {
+                if ( [ 'debug', 'no_css' ].indexOf( k ) > -1 ) {
+                    options[ k ] = ( String( v ) == 'true' )
+                }
+            } );
             return this.each( function() {
                 init( this, options );
             });
